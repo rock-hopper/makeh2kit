@@ -3,7 +3,7 @@ makeh2kit
 
 BASH script to auto-generate .h2drumkit files
 
-Running 'makeh2kit' with no arguments will scan the current directory for .flac files and create a .h2drumkit file named after the current directory.
+Running 'makeh2kit' with no arguments scans the current directory for .flac files and creates a .h2drumkit file named after the current directory. Instruments are named after the audio files minus the extension.
 
 FLAC, WAV, AU, or AIFF files can be scanned for, e.g.
 
