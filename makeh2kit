@@ -1,0 +1,196 @@
+#!/bin/bash
+#
+# 'makeh2kit' by RockHopper 2013
+#
+# Running 'makeh2kit' with no arguments will scan the current directory for .flac files
+# and create a .h2drumkit file named after the current directory.
+#
+# For a full list of options, run 'makeh2kit -h'
+#
+# This script is public domain and provided 'as-is', without any express or implied 
+# warranty. In no event will the author be held liable for any damages arising from 
+# the use of this software.
+
+
+args=("$@")
+numArgs=$#
+
+let TAB_SIZE=4
+let currentTabPos=0
+
+kitName="${PWD##*/}" # Kit name defaults to present working directory
+kitAuthor=""
+kitInfo=""
+kitLicense=""
+fileType="flac"
+outputXML=""
+infoFormattingOpen="&lt;!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">
+&lt;html>&lt;head>&lt;meta name=\"qrichtext\" content=\"1\" />&lt;style type=\"text/css\">
+p, li { white-space: pre-wrap; }
+&lt;/style>&lt;/head>&lt;body style=\" font-family:'Lucida Grande'; font-size:10pt; font-weight:400; font-style:normal;\">
+&lt;p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">"
+infoFormattingClose="&lt;/p>&lt;/body>&lt;/html>"
+
+declare -a fileNames
+
+
+function showHelp {
+    echo -e "\nUsage: makeh2kit [OPTION]...\n"
+    echo -e "Running 'makeh2kit' with no arguments will scan the current\ndirectory for .flac files and create a .h2drumkit file named\nafter the current directory.\n"
+    echo -e "Options:"
+    echo -e "  -n, --name 'KIT NAME'\t\tdrumkit name"
+    echo -e "  -a, --author 'AUTHOR'\t\tname of author"
+    echo -e "  -l, --license 'LICENSE'\tlicense to use for the drumkit"
+    echo -e "  -i, --info 'INFO'\t\tadditional info"
+    echo -e "      --hi '<p>INFO</p>',\tadditional info; accepts HTML -\n      --htmlinfo '<p>INFO</p>'\tformatting tags. Note that every\n\t\t\t\toccurrence of '<' will be replaced\n\t\t\t\twith '&lt;'"
+    echo -e "  -f, --format=FORMAT\t\tformat of audio files to scan for:\n\t\t\t\tflac (default), wav, au, or aiff"
+    echo -e "  -h, --help\t\t\tdisplay this help and exit\n"
+    echo -e "N.B. When supplying arguments to options -n, -a, -l, and -i use\nsingle rather than double quotes to allow for use of special\ncharacters\n"
+    exit 0
+}
+
+
+function setFileType {
+    local input=$1
+
+    # check if user input is a valid file type
+    case "$input" in
+        aiff )  fileType="aiff";;
+        AIFF )  fileType="aiff";;
+        au )    fileType="au";;
+        AU )    fileType="au";;
+        flac )  fileType="flac";;
+        FLAC )  fileType="flac";;
+        wav )   fileType="wav";;
+        WAV )   fileType="wav";;
+        * )     echo "Invalid input: $input. File type must be flac, wav, au or aiff"; exit 1;;
+    esac
+}
+
+
+function insertTab {
+    local let i=0
+    for (( i=0; i < currentTabPos; i++ )); do
+        outputXML+=" "
+    done
+}
+
+
+function addLayer {
+    local fileName=$1
+
+    insertTab; outputXML+="<layer>\n"
+    (( currentTabPos += TAB_SIZE ))
+        insertTab; outputXML+="<filename>$fileName</filename>\n"
+        insertTab; outputXML+="<min>0</min>\n"
+        insertTab; outputXML+="<max>1</max>\n"
+        insertTab; outputXML+="<gain>1</gain>\n"
+        insertTab; outputXML+="<pitch>0</pitch>\n"
+    (( currentTabPos -= TAB_SIZE ))
+    insertTab; outputXML+="</layer>\n"
+}
+
+
+function addInstrument {
+    let local instrID=$1
+    local fileName=$2
+
+    insertTab; outputXML+="<instrument>\n"
+    (( currentTabPos += TAB_SIZE ))
+        insertTab; outputXML+="<id>$instrID</id>\n"
+        insertTab; outputXML+="<name>${fileName%.$fileType}</name>\n"
+        insertTab; outputXML+="<volume>1</volume>\n"
+        insertTab; outputXML+="<isMuted>false</isMuted>\n"
+        insertTab; outputXML+="<pan_L>1</pan_L>\n"
+        insertTab; outputXML+="<pan_R>1</pan_R>\n"
+        insertTab; outputXML+="<randomPitchFactor>0</randomPitchFactor>\n"
+        insertTab; outputXML+="<gain>1</gain>\n"
+        insertTab; outputXML+="<filterActive>false</filterActive>\n"
+        insertTab; outputXML+="<Attack>0</Attack>\n"
+        insertTab; outputXML+="<Decay>0</Decay>\n"
+        insertTab; outputXML+="<Sustain>1</Sustain>\n"
+        insertTab; outputXML+="<Release>1000</Release>\n"
+        insertTab; outputXML+="<muteGroup>-1</muteGroup>\n"
+        insertTab; outputXML+="<isStopNote>false</isStopNote>\n"
+        addLayer "$fileName"
+    (( currentTabPos -= TAB_SIZE ))
+    insertTab; outputXML+="</instrument>\n"
+}
+
+
+function addInstrumentList {
+    local let i=0
+    local let numFiles=${#fileNames[@]}
+
+    insertTab; outputXML+="<instrumentList>\n"
+    (( currentTabPos += TAB_SIZE ))
+        for (( i=0; i < $numFiles; i++ )); do
+            addInstrument $i "${fileNames[$i]}"
+        done
+    (( currentTabPos -= TAB_SIZE ))
+    insertTab; outputXML+="</instrumentList>\n"
+}
+
+
+if [ $numArgs -gt 0 ]; then
+    let i=0
+    while [ $i -lt $numArgs ]; do
+        case ${args[$i]} in
+            -n )            (( i++ )); kitName=${args[$i]};;
+            --name )        (( i++ )); kitName=${args[$i]};;
+            -a )            (( i++ )); kitAuthor=${args[$i]};;
+            --author )      (( i++ )); kitAuthor=${args[$i]};;
+            -i )            (( i++ )); kitInfo=${args[$i]};;
+            --info )        (( i++ )); kitInfo=${args[$i]};;
+            --hi )          (( i++ )); kitInfo=${args[$i]//</'&lt;'};;
+            --htmlinfo )    (( i++ )); kitInfo=${args[$i]//</'&lt;'};;
+            -l )            (( i++ )); kitLicense=${args[$i]};;
+            --license )     (( i++ )); kitLicense=${args[$i]};;
+            -f=* )          setFileType ${args[$i]:3};;
+            --format=* )    setFileType ${args[$i]:11};;
+            -h )            showHelp;;
+            --help )        showHelp;;
+            * )             echo "Invalid option: ${args[$i]}. See 'makeh2kit -h' for usage"; exit 1;;
+        esac
+        (( i++ ))
+    done
+fi
+
+let i=0
+for filename in *.$fileType; do
+    if [ "$filename" = "*.$fileType" ]; then
+        echo "No *.$fileType files found in current directory!"
+        exit 1
+    fi
+    fileNames[$i]="$filename"
+    (( i++ ))
+done
+
+outputXML+="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+outputXML+="<drumkit_info xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://www.hydrogen-music.org/drumkit\">\n"
+(( currentTabPos += TAB_SIZE ))
+    insertTab; outputXML+="<name>$kitName</name>\n"
+    insertTab; outputXML+="<author>$kitAuthor</author>\n"
+    insertTab; outputXML+="<info>$infoFormattingOpen$kitInfo$infoFormattingClose</info>\n"
+    insertTab; outputXML+="<license>$kitLicense</license>\n"
+    addInstrumentList
+(( currentTabPos -= TAB_SIZE ))
+outputXML+="</drumkit_info>"
+
+mkdir "$kitName"
+# If a directory with this name already exists then bail out
+if [ $? -eq 1 ]; then
+    exit 1
+fi  
+
+echo -e "$outputXML" > "$kitName"/drumkit.xml
+
+let numFiles=${#fileNames[@]}
+for (( i=0; i < $numFiles; i++ )); do
+    cp "${fileNames[$i]}" "$kitName"
+done
+
+tar -czf "$kitName".tar.gz "$kitName"
+mv "$kitName".tar.gz "$kitName".h2drumkit
+rm -rf "$kitName"
+
