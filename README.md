@@ -19,8 +19,8 @@ For a full list of options, run:
 
 Once downloaded, make the script executable (e.g. right click the file and select Properties->Permissions) then copy to /usr/bin with:
 
-    su -c 'cp makesfz /usr/bin'
+    su -c 'cp makeh2kit /usr/bin'
 
 or
 
-    sudo cp makesfz /usr/bin
+    sudo cp makeh2kit /usr/bin
