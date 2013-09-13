@@ -30,4 +30,4 @@ Near the top of the script are variables that may be modified if makeh2kit is in
     MAKEH2KIT_FILEPATH="makeh2kit"
     TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
 
-Once downloaded, make the script executable then move it to /usr/share/nautilus-scripts if Nautilus Scripts Manager is installed or to ~/.gnome2/nautilus-scripts to make the script permanently available.
+Once downloaded, make the script executable then move it to /usr/share/nautilus-scripts if Nautilus Scripts Manager is installed or to ~/.gnome2/nautilus-scripts to make the script always available.
