@@ -24,3 +24,15 @@ Once downloaded, make the script executable (e.g. right click the file and selec
 or
 
     sudo cp makeh2kit /usr/bin
+
+___
+
+Make h2drumkit
+==============
+
+This is a Nautilus script to invoke 'makeh2kit'. It assumes that makeh2kit is installed in /usr/bin and that xterm is available.
+
+Near the top of the script are variables that may be modified if makeh2kit is installed somewhere other than /usr/bin or if you wish to use a terminal emulator other than xterm:
+
+    MAKEH2KIT_FILEPATH="makeh2kit"
+    TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
