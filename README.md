@@ -17,14 +17,7 @@ For a full list of options, run:
 
     makeh2kit -h
 
-Once downloaded, make the script executable (e.g. right click the file and select Properties->Permissions) then copy to /usr/bin with:
-
-    su -c 'cp makeh2kit /usr/bin'
-
-or
-
-    sudo cp makeh2kit /usr/bin
-
+Once downloaded, make the script executable (e.g. right click the file and select Properties->Permissions) then move it to /usr/bin
 ___
 
 Make h2drumkit
@@ -36,3 +29,5 @@ Near the top of the script are variables that may be modified if makeh2kit is in
 
     MAKEH2KIT_FILEPATH="makeh2kit"
     TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
+
+Once downloaded, make the script executable then move it to /usr/share/nautilus-scripts if Nautilus Scripts Manager is installed or to ~/.gnome2/nautilus-scripts to make the script permanently available.
