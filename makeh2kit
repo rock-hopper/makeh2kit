@@ -147,7 +147,7 @@ if [ $numArgs -gt 0 ]; then
             -l )            (( i++ )); kitLicense=${args[$i]};;
             --license )     (( i++ )); kitLicense=${args[$i]};;
             -f=* )          setFileType ${args[$i]:3};;
-            --format=* )    setFileType ${args[$i]:11};;
+            --format=* )    setFileType ${args[$i]:9};;
             -h )            showHelp;;
             --help )        showHelp;;
             * )             echo "Invalid option: ${args[$i]}. See 'makeh2kit -h' for usage"; exit 1;;
@@ -193,4 +193,5 @@ done
 tar -czf "$kitName".tar.gz "$kitName"
 mv "$kitName".tar.gz "$kitName".h2drumkit
 rm -rf "$kitName"
+
 
