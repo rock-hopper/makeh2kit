@@ -8,6 +8,21 @@ Running makeh2kit with no arguments will scan the current directory for FLAC fil
 Instruments are named after the audio files minus their extension.
 
 Audio files can be treated as indiviual instruments or as instrument layers grouped either by sub-directory or by file name with numeric prefixes/suffixes indicating the layers.
+For example, if the "layer marker" is set to "prefix":
+
+    00 kick1.flac
+    01 kick1.flac
+    02 kick1.flac
+    03 kick1.flac
+
+become layers of kick1, and
+
+    1_kick2.flac
+    2_kick2.flac
+    3_kick2.flac
+    4_kick2.flac
+
+become layers of kick2.
 
 Hydrogen kits that "map" SFZ drum kits can also be created. The resulting kit won't contain any audio files and will instead trigger the MIDI note of each instrument in the SFZ kit. Hydrogen's MIDI Out should be connected to the sampler's MIDI In for this to work.
 
