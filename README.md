@@ -9,7 +9,7 @@ Instruments are named after the audio files minus their extension.
 
 Audio files can be treated as indiviual instruments or as instrument layers grouped either by sub-directory or by file name with numeric prefixes/suffixes indicating the layers.
 
-Hydrogen kits can also be created from SFZ drum kits. The resulting kit won't contain any audio files and will instead map the MIDI note numbers of each instrument in the SFZ kit. Hydrogen's MIDI Out should be connected to the sampler's MIDI In.
+Hydrogen kits that "map" SFZ drum kits can also be created. The resulting kit won't contain any audio files and will instead trigger the MIDI note of each instrument in the SFZ kit. Hydrogen's MIDI Out should be connected to the sampler's MIDI In for this to work.
 
 File format (FLAC, WAV, AU, AIFF, or SFZ) can be specified using the -f option:
 
