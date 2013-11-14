@@ -1,197 +1,856 @@
 #!/bin/bash
 #
-# 'makeh2kit' by RockHopper 2013
+# makeh2kit by RockHopper 2013
 #
-# Running 'makeh2kit' with no arguments will scan the current directory for .flac files
-# and create a .h2drumkit file named after the current directory.
+# A script to auto-generate h2drumkit files. Requires bash v4 and gawk
 #
 # For a full list of options, run 'makeh2kit -h'
 #
 # This script is public domain and provided 'as-is', without any express or implied 
 # warranty. In no event will the author be held liable for any damages arising from 
-# the use of this software.
+# the use of this software
 
 
-args=("$@")
-numArgs=$#
+declare -ra ARGS=("$@")
+declare -ri NUM_ARGS=$#
 
-let TAB_SIZE=4
-let currentTabPos=0
+declare -ri MAX_LAYERS=16
 
-kitName="${PWD##*/}" # Kit name defaults to present working directory
-kitAuthor=""
-kitInfo=""
-kitLicense=""
-fileType="flac"
-outputXML=""
-infoFormattingOpen="&lt;!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">
+declare -a instrumentNames
+declare -ia instrNumLayers
+declare -ia instrFilesIndex
+declare -ia instrMidiNotes
+declare -a instrFilePaths
+declare -a origFileNames
+declare -a newFileNames
+declare -a fileSearchPaths
+declare -a dirSearchPaths
+
+declare kitName="${PWD##*/}" # Kit name defaults to present working directory
+declare kitAuthor=""
+declare kitInfo=""
+declare kitLicense=""
+declare fileType="flac"
+declare layerMarker=""
+declare -r infoHtmlTagOpen="&lt;!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">
 &lt;html>&lt;head>&lt;meta name=\"qrichtext\" content=\"1\" />&lt;style type=\"text/css\">
 p, li { white-space: pre-wrap; }
 &lt;/style>&lt;/head>&lt;body style=\" font-family:'Lucida Grande'; font-size:10pt; font-weight:400; font-style:normal;\">
 &lt;p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">"
-infoFormattingClose="&lt;/p>&lt;/body>&lt;/html>"
+declare -r infoHtmlTagClose="&lt;/p>&lt;/body>&lt;/html>"
 
-declare -a fileNames
+declare isReverseSortOn=false
 
 
-function showHelp {
-    echo -e "\nUsage: makeh2kit [OPTION]...\n"
-    echo -e "Running 'makeh2kit' with no arguments will scan the current\ndirectory for .flac files and create a .h2drumkit file named\nafter the current directory.\n"
-    echo -e "Options:"
-    echo -e "  -n, --name 'KIT NAME'\t\tdrumkit name"
-    echo -e "  -a, --author 'AUTHOR'\t\tname of author"
-    echo -e "  -l, --license 'LICENSE'\tlicense to use for the drumkit"
-    echo -e "  -i, --info 'INFO'\t\tadditional info"
-    echo -e "      --hi '<p>INFO</p>',\tadditional info; accepts HTML -\n      --htmlinfo '<p>INFO</p>'\tformatting tags. Note that every\n\t\t\t\toccurrence of '<' will be replaced\n\t\t\t\twith '&lt;'"
-    echo -e "  -f, --format=FORMAT\t\tformat of audio files to scan for:\n\t\t\t\tflac (default), wav, au, or aiff"
-    echo -e "  -h, --help\t\t\tdisplay this help and exit\n"
-    echo -e "N.B. When supplying arguments to options -n, -a, -l, and -i use\nsingle rather than double quotes to allow for use of special\ncharacters\n"
-    exit 0
+function showHelp() 
+{
+    cat << EOF
+
+Usage:  makeh2kit [options]
+        makeh2kit [options] -- 'file name' ...
+
+Running makeh2kit with no arguments will scan the current directory 
+for flac files and create a h2drumkit file named after the current 
+directory.
+
+Audio files can be treated as indiviual instruments or as instrument 
+layers grouped either by sub-directory or by file name with numeric 
+prefixes/suffixes indicating the layers.
+
+Hydrogen kits can also be created from SFZ drum kits. The resulting 
+kit won't contain any audio files and will instead map the MIDI note 
+numbers of each instrument in the SFZ kit. Hydrogen's MIDI Out should 
+be connected to the sampler's MIDI In.
+
+Options:
+  -n, --name 'KIT NAME'         Drumkit name
+  -a, --author 'AUTHOR'         Name of author
+  -l, --license 'LICENSE'       License to use for the drumkit
+  -i, --info 'INFO'             Additional info
+      --hi '<p>INFO</p>',       Additional info; accepts HTML-
+      --htmlinfo '<p>INFO</p>'  formatting tags. Note that every
+                                occurrence of '<' will be replaced
+                                with '&lt;'
+  -f, --format FORMAT           File format; FORMAT may be 
+                                flac (default), wav, au, aiff, or sfz
+  -L, --layers LAYER_MARKER     Files are grouped into instruments
+                                according to a "layer marker"
+                                LAYER_MARKER may be dirs, prefix, or
+                                suffix (or d, p, or s)
+  -r, --reverse                 File names are sorted in reverse order
+  -h, --help                    Display this help and exit
+
+N.B. When supplying arguments to options -n, -a, -l, and -i use
+single rather than double quotes to allow for use of special
+characters
+
+EOF
 }
 
 
-function setFileType {
-    local input=$1
+function setFileType() 
+{
+    declare input=$1
 
     # check if user input is a valid file type
     case "$input" in
-        aiff )  fileType="aiff";;
-        AIFF )  fileType="aiff";;
-        au )    fileType="au";;
-        AU )    fileType="au";;
-        flac )  fileType="flac";;
-        FLAC )  fileType="flac";;
-        wav )   fileType="wav";;
-        WAV )   fileType="wav";;
-        * )     echo "Invalid input: $input. File type must be flac, wav, au or aiff"; exit 1;;
+        [aA][iI][fF][fF] )  fileType="aiff";;
+        [aA][uU] )          fileType="au";;
+        [fF][lL][aA][cC] )  fileType="flac";;
+        [wW][aA][vV] )      fileType="wav";;
+        [sS][fF][zZ] )      fileType="sfz";;
+        * )                 echo "Invalid input: $input. File type must be flac, wav, au, aiff, or sfz"; exit 1;;
     esac
 }
 
 
-function insertTab {
-    local let i=0
-    for (( i=0; i < currentTabPos; i++ )); do
-        outputXML+=" "
+function setLayerMarker()
+{
+    declare input=$1
+
+    # check if user input is valid
+    case "$input" in
+        [dD][iI][rR][sS] )          layerMarker="dirs";;
+        [dD] )                      layerMarker="dirs";;
+        [pP][rR][eE][fF][iI][xX] )  layerMarker="prefix";;
+        [pP] )                      layerMarker="prefix";;
+        [sS][uU][fF][fF][iI][xX] )  layerMarker="suffix";;
+        [sS] )                      layerMarker="suffix";;
+        * )                         echo "Invalid input: $input. Layer marker must be dirs, prefix, or suffix (or d, p, or s)"; exit 1;;
+    esac
+}
+
+
+function setSearchPaths()
+{
+    declare -i param=$1
+
+    while (( param < NUM_ARGS )); do
+
+        # Files/dirs not in the present working directory are discarded
+        if [ -f "${ARGS[$param]##*/}" ]; then
+            fileSearchPaths+=("${ARGS[$param]}")
+        elif [ -d "${ARGS[$param]##*/}" ]; then
+            dirSearchPaths+=("${ARGS[$param]}")
+        fi
+
+        (( param++ ))
     done
 }
 
 
-function addLayer {
-    local fileName=$1
+function processArgs()
+{
+    declare -i i=0
 
-    insertTab; outputXML+="<layer>\n"
-    (( currentTabPos += TAB_SIZE ))
-        insertTab; outputXML+="<filename>$fileName</filename>\n"
-        insertTab; outputXML+="<min>0</min>\n"
-        insertTab; outputXML+="<max>1</max>\n"
-        insertTab; outputXML+="<gain>1</gain>\n"
-        insertTab; outputXML+="<pitch>0</pitch>\n"
-    (( currentTabPos -= TAB_SIZE ))
-    insertTab; outputXML+="</layer>\n"
-}
-
-
-function addInstrument {
-    let local instrID=$1
-    local fileName=$2
-
-    insertTab; outputXML+="<instrument>\n"
-    (( currentTabPos += TAB_SIZE ))
-        insertTab; outputXML+="<id>$instrID</id>\n"
-        insertTab; outputXML+="<name>${fileName%.$fileType}</name>\n"
-        insertTab; outputXML+="<volume>1</volume>\n"
-        insertTab; outputXML+="<isMuted>false</isMuted>\n"
-        insertTab; outputXML+="<pan_L>1</pan_L>\n"
-        insertTab; outputXML+="<pan_R>1</pan_R>\n"
-        insertTab; outputXML+="<randomPitchFactor>0</randomPitchFactor>\n"
-        insertTab; outputXML+="<gain>1</gain>\n"
-        insertTab; outputXML+="<filterActive>false</filterActive>\n"
-        insertTab; outputXML+="<Attack>0</Attack>\n"
-        insertTab; outputXML+="<Decay>0</Decay>\n"
-        insertTab; outputXML+="<Sustain>1</Sustain>\n"
-        insertTab; outputXML+="<Release>1000</Release>\n"
-        insertTab; outputXML+="<muteGroup>-1</muteGroup>\n"
-        insertTab; outputXML+="<isStopNote>false</isStopNote>\n"
-        addLayer "$fileName"
-    (( currentTabPos -= TAB_SIZE ))
-    insertTab; outputXML+="</instrument>\n"
-}
-
-
-function addInstrumentList {
-    local let i=0
-    local let numFiles=${#fileNames[@]}
-
-    insertTab; outputXML+="<instrumentList>\n"
-    (( currentTabPos += TAB_SIZE ))
-        for (( i=0; i < $numFiles; i++ )); do
-            addInstrument $i "${fileNames[$i]}"
+    if (( NUM_ARGS > 0 )); then
+        while (( i < NUM_ARGS )); do
+            case ${ARGS[$i]} in
+                -n )            (( i++ )); kitName=${ARGS[$i]};;
+                --name )        (( i++ )); kitName=${ARGS[$i]};;
+                -a )            (( i++ )); kitAuthor=${ARGS[$i]};;
+                --author )      (( i++ )); kitAuthor=${ARGS[$i]};;
+                -i )            (( i++ )); kitInfo=${ARGS[$i]};;
+                --info )        (( i++ )); kitInfo=${ARGS[$i]};;
+                --hi )          (( i++ )); kitInfo=${ARGS[$i]//</'&lt;'};;
+                --htmlinfo )    (( i++ )); kitInfo=${ARGS[$i]//</'&lt;'};;
+                -l )            (( i++ )); kitLicense=${ARGS[$i]};;
+                --license )     (( i++ )); kitLicense=${ARGS[$i]};;
+                -f )            (( i++ )); setFileType ${ARGS[$i]};;
+                --format )      (( i++ )); setFileType ${ARGS[$i]};;
+                -L )            (( i++ )); setLayerMarker ${ARGS[$i]};;
+                --layers )      (( i++ )); setLayerMarker ${ARGS[$i]};;
+                -r )            isReverseSortOn=true;;
+                --reverse )     isReverseSortOn=true;;
+                -- )            (( i++ )); setSearchPaths $i; break;;
+                -h )            showHelp; exit 0;;
+                --help )        showHelp; exit 0;;
+                * )             echo "Invalid option: ${ARGS[$i]}. See 'makeh2kit -h' for usage"; exit 1;;
+            esac
+            (( i++ ))
         done
-    (( currentTabPos -= TAB_SIZE ))
-    insertTab; outputXML+="</instrumentList>\n"
+    fi
 }
 
 
-if [ $numArgs -gt 0 ]; then
-    let i=0
-    while [ $i -lt $numArgs ]; do
-        case ${args[$i]} in
-            -n )            (( i++ )); kitName=${args[$i]};;
-            --name )        (( i++ )); kitName=${args[$i]};;
-            -a )            (( i++ )); kitAuthor=${args[$i]};;
-            --author )      (( i++ )); kitAuthor=${args[$i]};;
-            -i )            (( i++ )); kitInfo=${args[$i]};;
-            --info )        (( i++ )); kitInfo=${args[$i]};;
-            --hi )          (( i++ )); kitInfo=${args[$i]//</'&lt;'};;
-            --htmlinfo )    (( i++ )); kitInfo=${args[$i]//</'&lt;'};;
-            -l )            (( i++ )); kitLicense=${args[$i]};;
-            --license )     (( i++ )); kitLicense=${args[$i]};;
-            -f=* )          setFileType ${args[$i]:3};;
-            --format=* )    setFileType ${args[$i]:9};;
-            -h )            showHelp;;
-            --help )        showHelp;;
-            * )             echo "Invalid option: ${args[$i]}. See 'makeh2kit -h' for usage"; exit 1;;
-        esac
-        (( i++ ))
-    done
-fi
+# File names may contain any character except for "\0" and "/" so care needs to be taken
+# to prevent file names containing spaces or new lines from being split
 
-let i=0
-for filename in *.$fileType; do
-    if [ "$filename" = "*.$fileType" ]; then
-        echo "No *.$fileType files found in current directory!"
+
+function getNumMatchingFiles()
+{
+    declare -a searchPaths
+
+    if [ "$1" != "" ]; then
+        searchPaths=("$1")
+    else
+        searchPaths=("${fileSearchPaths[@]}")
+    fi
+
+    # RS (Record Separator) is set to "/" as "\0" would simply read the entire
+    # input stream as one record. Setting FS (Field Separator) to "\0" is no good
+    # as that would cause individual characters to be treated as fields
+
+    find "${searchPaths[@]}" -maxdepth 1 -type f -iname "*.$fileType" -printf "%f/" | gawk '
+    BEGIN { RS = "/" }  # RS - Record Separator
+    END { print NR }    # NR - No. of Records'
+
+    unset searchPaths
+}
+
+
+function getSortedFileNames()
+{
+    declare -a searchPaths
+
+    if [ "$1" != "" ]; then
+        searchPaths=("$1")
+    else
+        searchPaths=("${fileSearchPaths[@]}")
+    fi
+
+    declare key1=""
+    declare key2=""
+    declare key3=""
+    declare sortOrder=""
+
+    # File names are sorted by leading digits, trailing digits, and by any characters in between.
+    # The order of the sort keys is dependant on the "layer marker"
+
+    if $isReverseSortOn; then
+        sortOrder="r"
+    fi
+
+    case $layerMarker in
+        dirs )      key1="2,2d";            key2="1,1n$sortOrder";  key3="3,3n$sortOrder";;
+        prefix )    key1="2,2d";            key2="3,3n";            key3="1,1n$sortOrder";;
+        suffix )    key1="2,2d";            key2="1,1n";            key3="3,3n$sortOrder";;
+        * )         key1="2,2d$sortOrder";  key2="1,1n";            key3="3,3n";;
+    esac
+
+    # sort -z appends null terminator instead of a new line
+    # GNU tr won't delete "\0" unless explicitly told to
+
+    find "${searchPaths[@]}" -maxdepth 1 -type f -iname "*.$fileType" -printf "%f/" | gawk '
+    BEGIN {
+        RS = "/"
+        IGNORECASE = 1
+    }
+    {
+        delimFileName = gensub(/(^[0-9]*)(.*[^0-9])([0-9]*[.]'$fileType'$)/, "\\1/\\2/\\3", 1)
+        printf("%s\0", delimFileName)
+    }
+    ' | sort -z -t/ ${key1:+-k "$key1"} ${key2:+-k "$key2"} ${key3:+-k "$key3"} | tr -d '/'
+
+    unset searchPaths
+}
+
+
+function renameDuplicateFileNames()
+{
+    declare -iA fileNameCounters
+    declare -i count=0
+    declare newName=""
+
+    for fileName in "${origFileNames[@]}"; do
+        fileNameCounters["$fileName"]+=1
+
+        # If file name is a duplicate
+        if (( ${fileNameCounters["$fileName"]} > 1 )); then
+            count=1
+            newName="${fileName%.*}_$count.$fileType"
+
+            # While the new name is not unique
+            while [ "${fileNameCounters[$newName]}" != "" ]; do
+                (( count++ ))
+                newName="${fileName%.*}_$count.$fileType"
+            done
+
+            fileNameCounters["$newName"]+=1
+            newFileNames+=("$newName")
+        else
+            newFileNames+=("$fileName")
+        fi
+    done
+}
+
+
+function findFilesLayerMarkerDirs()
+{
+    # If no dir names have been passed on the command line then set dir search path to PWD
+    if (( ${#dirSearchPaths[@]} == 0 )); then
+        dirSearchPaths=(".")
+    fi
+
+    # IFS (Internal Field Separator) is set to null for duration of read operation to prevent
+    # file names containing spaces or new lines from being split
+
+    # Find sub-directories containing audio files 
+    while IFS= read -r -d '' dirName; do
+        numFiles=$( getNumMatchingFiles "$dirName" )
+
+        if (( numFiles > 0 )); then
+            if (( numFiles > MAX_LAYERS )); then
+                echo -e "Warning: Instruments can only have $MAX_LAYERS layers \n$numFiles matching files found in $PWD/$dirName \nOnly the first $MAX_LAYERS will be included\n"
+                numFiles=$MAX_LAYERS
+            fi
+            instrumentNames+=("$dirName")
+            instrNumLayers+=($numFiles)
+            instrFilePaths+=("$PWD/$dirName")
+            instrFilesIndex+=($filesIndex)
+            (( filesIndex += numFiles ))
+
+            # Find audio files in sub-directory
+            layerNum=1
+            while IFS= read -r -d '' fileName; do
+                if (( layerNum <= MAX_LAYERS )); then
+                    origFileNames+=("$fileName")
+                    (( layerNum++ ))
+                fi
+            done < <(getSortedFileNames "$dirName")
+        fi
+    done < <(find "${dirSearchPaths[@]}" -maxdepth 1 -type d ! -wholename '[.]' -printf "%f\0" | sort -z)
+
+    # Find audio files in current directory
+    findFilesLayerMarkerNone
+
+    renameDuplicateFileNames
+}
+
+
+function findFilesLayerMarkerPrefix()
+{
+    declare -i instrID=-1
+    declare -iA instrLayerCounters
+    declare instrName=""
+
+    numFiles=$( getNumMatchingFiles )
+
+    if (( numFiles > 0 )); then
+        while IFS= read -r -d '' fileName; do
+
+            # Strip leading digits and file extension from file name
+            instrName=$( printf '%s/' "${fileName%.*}" | gawk 'BEGIN { RS = "/" }
+            {
+                instrName = gensub(/^[0-9]*([^0-9].*)$/, "\\1", 1)
+                printf("%s", instrName)
+            }')
+
+            # If file belongs to a new instrument rather than a layer of an existing instrument...
+            if [ "${instrLayerCounters[$instrName]}" == "" ]; then
+                (( instrID++ ))
+                instrumentNames+=("$instrName")
+                instrFilePaths+=("$PWD")
+                instrFilesIndex+=($filesIndex)
+            fi
+
+            instrLayerCounters["$instrName"]+=1
+            layerNum=${instrLayerCounters["$instrName"]}
+            if (( layerNum <= MAX_LAYERS )); then
+                instrNumLayers[$instrID]=$layerNum
+                origFileNames+=("$fileName")
+                (( filesIndex++ ))
+            else
+                echo -e "Warning: Instruments can only have $MAX_LAYERS layers \nInstrument $instrName already has $MAX_LAYERS layers \n$fileName will not be included\n"
+            fi
+
+        done < <(getSortedFileNames)
+    fi
+}
+
+
+function findFilesLayerMarkerSuffix()
+{
+    declare -i instrID=-1
+    declare -iA instrLayerCounters
+    declare instrName=""
+
+    numFiles=$( getNumMatchingFiles )
+
+    if (( numFiles > 0 )); then
+        while IFS= read -r -d '' fileName; do
+
+            # Strip trailing digits and file extension from file name
+            instrName=$( printf '%s/' "${fileName%.*}" | gawk 'BEGIN { RS = "/" }
+            {
+                instrName = gensub(/^(.*[^0-9])[0-9]*$/, "\\1", 1)
+                printf("%s", instrName)
+            }')
+
+            # If file belongs to a new instrument rather than a layer of an existing instrument...
+            if [ "${instrLayerCounters[$instrName]}" == "" ]; then
+                (( instrID++ ))
+                instrumentNames+=("$instrName")
+                instrFilePaths+=("$PWD")
+                instrFilesIndex+=($filesIndex)
+            fi
+
+            instrLayerCounters["$instrName"]+=1
+            layerNum=${instrLayerCounters["$instrName"]}
+            if (( layerNum <= MAX_LAYERS )); then
+                instrNumLayers[$instrID]=$layerNum
+                origFileNames+=("$fileName")
+                (( filesIndex++ ))
+            else
+                echo -e "Warning: Instruments can only have $MAX_LAYERS layers \nInstrument $instrName already has $MAX_LAYERS layers \n$fileName will not be included\n"
+            fi
+
+        done < <(getSortedFileNames)
+    fi
+}
+
+
+function findFilesLayerMarkerNone()
+{
+    numFiles=$( getNumMatchingFiles )
+
+    if (( numFiles > 0 )); then
+        while IFS= read -r -d '' fileName; do
+            origFileNames+=("$fileName")
+            instrumentNames+=("${fileName%.*}")
+            instrNumLayers+=(1)
+            instrFilePaths+=("$PWD")
+            instrFilesIndex+=($filesIndex)
+            (( filesIndex++ ))
+        done < <(getSortedFileNames)
+    fi
+}
+
+
+function findFilesSFZ()
+{
+    numFiles=$( getNumMatchingFiles )
+
+    if (( numFiles > 0 )); then
+        while IFS= read -r -d '' fileName; do
+            origFileNames+=("$fileName")
+        done < <(getSortedFileNames)
+    fi
+}
+
+
+function findFiles()
+{
+    declare -i numFiles=0
+    declare -i filesIndex=0
+    declare -i layerNum=0
+
+    # If no file names have been passed on the command line then set file search path to PWD
+    if (( ${#fileSearchPaths[@]} == 0 )); then
+        fileSearchPaths=(".")
+    fi
+
+    if [ "$fileType" == "sfz" ]; then
+        findFilesSFZ
+    else
+        case $layerMarker in
+            dirs )      findFilesLayerMarkerDirs;;
+            prefix )    findFilesLayerMarkerPrefix;;
+            suffix )    findFilesLayerMarkerSuffix;;
+            * )         findFilesLayerMarkerNone;;
+        esac
+    fi
+}
+
+
+function calculateF()
+{
+    declare expression=$1
+
+    # scale=4 : round to 4 fractional digits
+    # if(x<1) print 0 : print leading 0
+    # 2>/dev/null : don't print error messages
+    echo $( echo "scale=4; x=$expression; if(x<1) print 0; x" | bc -q 2>/dev/null )
+}
+
+
+function printIndent() 
+{
+    declare -i i=0
+
+    for (( i=0; i < currentIndentSize; i++ )); do
+        echo -n " "
+    done
+}
+
+
+function addLayerXML() 
+{
+    xmlLines+=("$indent<layer>")
+
+    (( currentIndentSize += tabSize ))
+    indent=$(printIndent)
+
+        if [ "$layerMarker" == "dirs" ]; then
+            xmlLines+=("$indent<filename>${newFileNames[$fileID]}</filename>")
+        else
+            xmlLines+=("$indent<filename>${origFileNames[$fileID]}</filename>")
+        fi
+        xmlLines+=("$indent<min>$velLo</min>")
+        xmlLines+=("$indent<max>$velHi</max>")
+        xmlLines+=("$indent<gain>1</gain>")
+        xmlLines+=("$indent<pitch>0</pitch>")
+
+    (( currentIndentSize -= tabSize ))
+    indent=$(printIndent)
+
+    xmlLines+=("$indent</layer>")
+}
+
+
+function addInstrumentXML() 
+{
+    velIncrement=$( calculateF "1 / $numLayers" )
+    velHi=1
+    velLo=$( calculateF "1 - $velIncrement" )
+
+    xmlLines+=("$indent<instrument>")
+
+    (( currentIndentSize += tabSize ))
+    indent=$(printIndent)
+
+        xmlLines+=("$indent<id>$instrID</id>")
+        xmlLines+=("$indent<name>$instrName</name>")
+        xmlLines+=("$indent<volume>1</volume>")
+        xmlLines+=("$indent<isMuted>false</isMuted>")
+        xmlLines+=("$indent<pan_L>1</pan_L>")
+        xmlLines+=("$indent<pan_R>1</pan_R>")
+        xmlLines+=("$indent<randomPitchFactor>0</randomPitchFactor>")
+        xmlLines+=("$indent<gain>1</gain>")
+        xmlLines+=("$indent<filterActive>false</filterActive>")
+        xmlLines+=("$indent<Attack>0</Attack>")
+        xmlLines+=("$indent<Decay>0</Decay>")
+        xmlLines+=("$indent<Sustain>1</Sustain>")
+        xmlLines+=("$indent<Release>1000</Release>")
+        xmlLines+=("$indent<muteGroup>-1</muteGroup>")
+        if [ "$fileType" == "sfz" ]; then
+            xmlLines+=("$indent<midiOutChannel>0</midiOutChannel>")
+            xmlLines+=("$indent<midiOutNote>${instrMidiNotes[$instrID]}</midiOutNote>")
+        fi
+        xmlLines+=("$indent<isStopNote>false</isStopNote>")
+
+        while (( fileID < filesIndex + numLayers )); do
+            if (( fileID == filesIndex + numLayers - 1 )); then
+                velLo=0
+            fi
+
+            addLayerXML
+
+            velHi=$( calculateF "$velHi - $velIncrement" )
+            velLo=$( calculateF "$velLo - $velIncrement" )
+            (( fileID++ ))
+        done
+
+    (( currentIndentSize -= tabSize ))
+    indent=$(printIndent)
+
+    xmlLines+=("$indent</instrument>")
+}
+
+
+function addInstrumentListXML() 
+{
+    declare -ri numInstruments=${#instrumentNames[@]}
+    declare -i instrID=0
+    declare instrName=""
+    declare -i numLayers=0
+    declare -i fileID=0
+    declare -i filesIndex=0
+    declare velHi=1
+    declare velLo=0
+    declare velIncrement=0.0
+
+    xmlLines+=("$indent<instrumentList>")
+
+    (( currentIndentSize += tabSize ))
+    indent=$(printIndent)
+
+        for (( instrID=0; instrID < numInstruments; instrID++ )); do
+            instrName="${instrumentNames[$instrID]}"
+            numLayers=${instrNumLayers[$instrID]}
+            filesIndex=${instrFilesIndex[$instrID]}
+            fileID=$filesIndex
+
+            addInstrumentXML
+        done
+
+    (( currentIndentSize -= tabSize ))
+    indent=$(printIndent)
+
+    xmlLines+=("$indent</instrumentList>")
+}
+
+
+function createDrumkitXmlFile()
+{
+    declare -ri tabSize=4
+    declare -i currentIndentSize=0
+    declare indent=""
+    declare -a xmlLines
+
+    xmlLines+=("$indent<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+    xmlLines+=("$indent<drumkit_info xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://www.hydrogen-music.org/drumkit\">")
+
+    (( currentIndentSize += tabSize ))
+    indent=$(printIndent)
+
+        xmlLines+=("$indent<name>$kitName</name>")
+        xmlLines+=("$indent<author>$kitAuthor</author>")
+        xmlLines+=("$indent<info>$infoHtmlTagOpen$kitInfo$infoHtmlTagClose</info>")
+        xmlLines+=("$indent<license>$kitLicense</license>")
+        addInstrumentListXML
+
+    (( currentIndentSize -= tabSize ))
+    indent=$(printIndent)
+
+    xmlLines+=("$indent</drumkit_info>")
+
+    touch "$kitName"/drumkit.xml
+
+    for line in "${xmlLines[@]}"; do
+        printf '%s\n' "$line" >> "$kitName"/drumkit.xml
+    done
+}
+
+
+function createH2DrumkitFile()
+{
+    declare -ri numInstruments=${#instrumentNames[@]}
+    declare -i instrID=0
+    declare -i numLayers=0
+    declare filePath=""
+    declare -i fileID=0
+    declare -i filesIndex=0
+
+    for (( instrID=0; instrID < numInstruments; instrID++ )); do
+        numLayers=${instrNumLayers[$instrID]}
+        filePath="${instrFilePaths[$instrID]}"
+        filesIndex=${instrFilesIndex[$instrID]}
+        fileID=$filesIndex
+
+        while (( fileID < filesIndex + numLayers )); do
+            if [ "$layerMarker" == "dirs" ]; then
+                ln -s "$filePath/${origFileNames[$fileID]}" "$kitName/${newFileNames[$fileID]}"
+            else
+                ln -s "$filePath/${origFileNames[$fileID]}" "$kitName/${origFileNames[$fileID]}"
+            fi
+            (( fileID++ ))
+        done
+    done
+
+    tar --create --dereference --gzip --file "$kitName".h2drumkit "$kitName"
+}
+
+
+function createDir()
+{
+    declare dirName=$1
+
+    mkdir "$dirName"
+    # If a directory with this name already exists then bail out
+    if [ $? -eq 1 ]; then
         exit 1
     fi
-    fileNames[$i]="$filename"
-    (( i++ ))
-done
+}
 
-outputXML+="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-outputXML+="<drumkit_info xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://www.hydrogen-music.org/drumkit\">\n"
-(( currentTabPos += TAB_SIZE ))
-    insertTab; outputXML+="<name>$kitName</name>\n"
-    insertTab; outputXML+="<author>$kitAuthor</author>\n"
-    insertTab; outputXML+="<info>$infoFormattingOpen$kitInfo$infoFormattingClose</info>\n"
-    insertTab; outputXML+="<license>$kitLicense</license>\n"
-    addInstrumentList
-(( currentTabPos -= TAB_SIZE ))
-outputXML+="</drumkit_info>"
 
-mkdir "$kitName"
-# If a directory with this name already exists then bail out
-if [ $? -eq 1 ]; then
+# This function returns a null-terminated list of instruments. Each field is separated
+# by a "/". The 1st field is the instrument name and the 2nd field is the MIDI note no.
+function parseSfzFile()
+{
+    declare fileName=$1
+
+    gawk '
+    BEGIN {
+        RS = "<group>"
+        FS = "<region>"
+    }
+
+    function getKeyValue( input,    octave, result )
+    {
+        switch (substr( input, 1, 1 ))
+        {
+            case /[cC]/:
+                result = 0
+                break
+            case /[dD]/:
+                result = 2
+                break
+            case /[eE]/:
+                result = 4
+                break
+            case /[fF]/:
+                result = 5
+                break
+            case /[gG]/:
+                result = 7
+                break
+            case /[aA]/:
+                result = 9
+                break
+            case /[bB]/:
+                result = 11
+                break
+        }
+        
+        if ( input ~ /[[:alpha:]]#/ )
+        {
+            result++
+        }
+        if ( input ~ /[[:alpha:]]b/ )
+        {
+            result--
+        }
+        if ( input ~ /-1/ )
+        {
+            result -= 24
+        }
+
+        octave = substr( input, length(input), 1 )
+        result += 12 * (octave + 1)
+
+        return result
+    }
+
+    {
+        # If group has a "key=" attribute or if group has "lokey=" and "hikey=" attributes
+        # which both have the same values then treat the group as a single instrument
+
+        if ( match( $1, /.*\<key=[0-9]+.*/ ) )
+        {
+            key = gensub( /.*\<key=([0-9]+).*/, "\\1", 1, $1 )
+            key += 24
+            instrName = gensub( /.*sample=(.+)[.]([wW][aA][vV]|[fF][lL][aA][cC]|[oO][gG][gG]).*/, "\\1", 1 )
+            keys[key] = instrName
+        }
+        else if ( match( $1, /.*\<key=[a-gA-G](#|b)?(-1|[0-9]).*/ ) )
+        {
+            key = gensub( /.*\<key=([a-gA-G](#|b)?(-1|[0-9])).*/, "\\1", 1, $1 )
+            key = getKeyValue( key )
+            key += 24
+            instrName = gensub( /.*sample=(.+)[.]([wW][aA][vV]|[fF][lL][aA][cC]|[oO][gG][gG]).*/, "\\1", 1 )
+            keys[key] = instrName
+        }
+        else if ( match( $1, /.*(lo|hi)key=[0-9]+.*(lo|hi)key=[0-9]+.*/ ) )
+        {
+            lokey = gensub( /.*lokey=([0-9]+).*/, "\\1", 1, $1 )
+            hikey = gensub( /.*hikey=([0-9]+).*/, "\\1", 1, $1 )
+
+            if ( lokey == hikey )
+            {
+                key = lokey + 24
+                instrName = gensub( /.*sample=(.+)[.]([wW][aA][vV]|[fF][lL][aA][cC]|[oO][gG][gG]).*/, "\\1", 1 )
+                keys[key] = instrName
+            }
+        }
+        else if ( match( $1, /.*(lo|hi)key=[a-gA-G](#|b)?(-1|[0-9]).*(lo|hi)key=[a-gA-G](#|b)?(-1|[0-9]).*/ ) )
+        {
+            lokey = gensub( /.*lokey=([a-gA-G](#|b)?(-1|[0-9])).*/, "\\1", 1, $1 )
+            hikey = gensub( /.*hikey=([a-gA-G](#|b)?(-1|[0-9])).*/, "\\1", 1, $1 )
+
+            lokey = getKeyValue( lokey )
+            hikey = getKeyValue( hikey )
+
+            if ( lokey == hikey )
+            {
+                key = lokey + 24
+                instrName = gensub( /.*sample=(.+)[.]([wW][aA][vV]|[fF][lL][aA][cC]|[oO][gG][gG]).*/, "\\1", 1 )
+                keys[key] = instrName
+            }
+        }
+        else
+        {
+            # If a region has a key attribute or matching lokey/hikey attributes then treat it as an individual instrument
+
+            for ( field = 2; field <= NF; field++ )
+            {
+                if ( match( $field, /.*\<key=[0-9]+.*/ ) )
+                {
+                    key = gensub( /.*\<key=([0-9]+).*/, "\\1", 1, $field )
+                    key += 24
+                    instrName = gensub( /.*sample=(.+)[.]([wW][aA][vV]|[fF][lL][aA][cC]|[oO][gG][gG]).*/, "\\1", 1, $field )
+                    keys[key] = instrName
+                }
+                else if ( match( $field, /.*\<key=[a-gA-G](#|b)?(-1|[0-9]).*/ ) )
+                {
+                    key = gensub( /.*\<key=([a-gA-G](#|b)?(-1|[0-9])).*/, "\\1", 1, $field )
+                    key = getKeyValue( key )
+                    key += 24
+                    instrName = gensub( /.*sample=(.+)[.]([wW][aA][vV]|[fF][lL][aA][cC]|[oO][gG][gG]).*/, "\\1", 1, $field )
+                    keys[key] = instrName
+                }
+                else if ( match( $field, /.*(lo|hi)key=[0-9]+.*(lo|hi)key=[0-9]+.*/ ) )
+                {
+                    lokey = gensub( /.*lokey=([0-9]+).*/, "\\1", 1, $field )
+                    hikey = gensub( /.*hikey=([0-9]+).*/, "\\1", 1, $field )
+
+                    if ( lokey == hikey )
+                    {
+                        key = lokey + 24
+                        instrName = gensub( /.*sample=(.+)[.]([wW][aA][vV]|[fF][lL][aA][cC]|[oO][gG][gG]).*/, "\\1", 1, $field )
+                        keys[key] = instrName
+                    }
+                }
+                else if ( match( $field, /.*(lo|hi)key=[a-gA-G](#|b)?(-1|[0-9]).*(lo|hi)key=[a-gA-G](#|b)?(-1|[0-9]).*/ ) )
+                {
+                    lokey = gensub( /.*lokey=([a-gA-G](#|b)?(-1|[0-9])).*/, "\\1", 1, $field )
+                    hikey = gensub( /.*hikey=([a-gA-G](#|b)?(-1|[0-9])).*/, "\\1", 1, $field )
+
+                    lokey = getKeyValue( lokey )
+                    hikey = getKeyValue( hikey )
+
+                    if ( lokey == hikey )
+                    {
+                        key = lokey + 24
+                        instrName = gensub( /.*sample=(.+)[.]([wW][aA][vV]|[fF][lL][aA][cC]|[oO][gG][gG]).*/, "\\1", 1, $field )
+                        keys[key] = instrName
+                    }
+                }
+            }
+        }
+    }
+
+    END {
+        for (k in keys)
+        {
+            printf( "%s/%d\0", keys[k], k )
+        }
+    }
+    ' "$fileName" | sort -z -t/ -k 2,2n
+}
+
+
+# Main body of script
+
+processArgs
+findFiles
+
+if [ ${#origFileNames[@]} -eq 0 ]; then
+    echo "No $fileType files found!"
     exit 1
-fi  
+fi
 
-echo -e "$outputXML" > "$kitName"/drumkit.xml
+if [ "$fileType" == "sfz" ]; then
+    for fileName in "${origFileNames[@]}"; do
+        kitName="${fileName%.*}"
+        unset instrumentNames
+        unset instrNumLayers
 
-let numFiles=${#fileNames[@]}
-for (( i=0; i < $numFiles; i++ )); do
-    cp "${fileNames[$i]}" "$kitName"
-done
-
-tar -czf "$kitName".tar.gz "$kitName"
-mv "$kitName".tar.gz "$kitName".h2drumkit
-rm -rf "$kitName"
-
+        while IFS= read -r -d '' instrData; do
+            instrumentNames+=("${instrData%/*}")
+            instrMidiNotes+=(${instrData#*/})
+            instrNumLayers+=(0)
+        done < <(parseSfzFile "$fileName")
+        
+        createDir "$kitName"
+        createDrumkitXmlFile
+        createH2DrumkitFile
+        rm -rf "$kitName"
+    done
+else
+    createDir "$kitName"
+    createDrumkitXmlFile
+    createH2DrumkitFile
+    rm -rf "$kitName"
+fi
 
