@@ -14,7 +14,7 @@
 # These variables may be modified if you need to specify the file path of makeh2kit
 # or if you wish to use a different terminal emulator
 
-MAKEH2KIT_FILEPATH="makeh2kit"
+MAKEH2KIT_FILEPATH="/dev/shm/makeh2kit/makeh2kit"
 TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
 
 # N.B. For a list of available fonts in xterm type: appres XTerm | grep VT100.font
@@ -50,7 +50,7 @@ commandToExec+='function moveCursorUpOneLine { tput cuu1; }; '
 
 commandToExec+='setTextColour $YELLOW; startUnderline; echo -e "\nMake h2drumkit\n"; stopUnderline; setTextColour $WHITE; '
 
-commandToExec+='echo -e "This script will auto-generate a .h2drumkit file from the selected file(s).\nIf no files are selected it will scan the current directory for compatible\nfiles (flac, wav, au, aiff, or sfz).\n\nAudio files can be treated as indiviual instruments or as instrument layers\ngrouped either by sub-directory or by file name with numeric prefixes/suffixes\nindicating the layers.\n\nHydrogen kits can also be created from SFZ drum kits. The resulting kit will\nnot contain any audio files and will instead map the MIDI note numbers of\neach instrument in the SFZ kit (connect Hydrogen MIDI Out -> sampler MIDI In).\n"; '
+commandToExec+='echo -e "This script will auto-generate a .h2drumkit file from the selected file(s).\nIf no files are selected it will scan the current directory for compatible\nfiles (flac, wav, au, aiff, or sfz).\n\nAudio files can be treated as indiviual instruments or as instrument layers\ngrouped either by sub-directory or by file name with numeric prefixes/suffixes\nindicating the layers.\n\nHydrogen kits that \"map\" SFZ drum kits can also be created. The resulting kit\nwill not contain any audio files and will instead trigger the MIDI note of\neach instrument in the SFZ kit.\n"; '
 commandToExec+='setTextColour $YELLOW; echo -e "Please enter the following details or simply press enter to accept the\ndefault values...\n"; setTextColour $WHITE; '
 
 if [[ $fileType != [sS][fF][zZ] ]]; then
@@ -72,7 +72,7 @@ else
 fi
 
 commandToExec+='if [[ $format != [sS][fF][zZ] ]]; then '
-commandToExec+='echo "Layer marker (none (default), dirs, prefix, or suffix; or d, p, or s):"; setTextColour $CYAN; read -e layerMarker; '
+commandToExec+='echo "Layer marker (none (default), dirs, prefix, or suffix (or d, p, or s)):"; setTextColour $CYAN; read -e layerMarker; '
 commandToExec+='if [[ $layerMarker == "" ]]; then moveCursorUpOneLine; echo "none"; fi; '
 commandToExec+='if [[ $layerMarker == "none" ]]; then layerMarker=""; fi; setTextColour $WHITE; '
 commandToExec+='fi; '

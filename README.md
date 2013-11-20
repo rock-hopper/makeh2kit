@@ -24,7 +24,7 @@ become layers of kick1, and
 
 become layers of kick2.
 
-Hydrogen kits that "map" SFZ drum kits can also be created. The resulting kit won't contain any audio files and will instead trigger the MIDI note of each instrument in the SFZ kit. Hydrogen's MIDI Out should be connected to the sampler's MIDI In for this to work.
+Hydrogen kits that "map" SFZ drum kits can also be created. The resulting kit won't contain any audio files and will instead trigger the MIDI note of each instrument in the SFZ kit. Once the kit is imported, connect Hydrogen's MIDI Out to the sampler's MIDI In.
 
 File format (FLAC, WAV, AU, AIFF, or SFZ) can be specified using the -f option:
 
