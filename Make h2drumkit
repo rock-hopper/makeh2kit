@@ -14,7 +14,7 @@
 # These variables may be modified if you need to specify the file path of makeh2kit
 # or if you wish to use a different terminal emulator
 
-MAKEH2KIT_FILEPATH="/dev/shm/makeh2kit/makeh2kit"
+MAKEH2KIT_FILEPATH="makeh2kit"
 TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
 
 # N.B. For a list of available fonts in xterm type: appres XTerm | grep VT100.font
