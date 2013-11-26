@@ -178,12 +178,10 @@ function processArgs()
 
 function getNumMatchingFiles()
 {
-    declare -a searchPaths
+    declare -a searchPaths=("$@")
 
-    if [ "$1" != "" ]; then
-        searchPaths=("$1")
-    else
-        searchPaths=("${fileSearchPaths[@]}")
+    if (( ${#searchPaths[@]} == 0 )); then
+        echo 0; return
     fi
 
     # RS (Record Separator) is set to "/" as "\0" would simply read the entire
@@ -200,13 +198,7 @@ function getNumMatchingFiles()
 
 function getSortedFileNames()
 {
-    declare -a searchPaths
-
-    if [ "$1" != "" ]; then
-        searchPaths=("$1")
-    else
-        searchPaths=("${fileSearchPaths[@]}")
-    fi
+    declare -a searchPaths=("$@")
 
     declare key1=""
     declare key2=""
@@ -274,11 +266,10 @@ function renameDuplicateFileNames()
 }
 
 
-function findFilesLayerMarkerDirs()
+function findFilesInSubDirs()
 {
-    # If no dir names have been passed on the command line then set dir search path to PWD
     if (( ${#dirSearchPaths[@]} == 0 )); then
-        dirSearchPaths=(".")
+        return
     fi
 
     # IFS (Internal Field Separator) is set to null for duration of read operation to prevent
@@ -309,29 +300,34 @@ function findFilesLayerMarkerDirs()
             done < <(getSortedFileNames "$dirName")
         fi
     done < <(find "${dirSearchPaths[@]}" -maxdepth 1 -type d ! -wholename '[.]' -printf "%f\0" | sort -z)
-
-    # Find audio files in current directory
-    findFilesLayerMarkerNone
-
-    renameDuplicateFileNames
 }
 
 
-function findFilesLayerMarkerPrefix()
+function findFilesWithDigits()
 {
     declare -i instrID=-1
     declare -iA instrLayerCounters
     declare instrName=""
+    declare regEx=""
 
-    numFiles=$( getNumMatchingFiles )
+    if [ "$layerMarker" == "prefix" ]; then
+        # Strip leading digits from file name
+        regEx='/^[0-9]*([^0-9].*)$/'
+    elif [ "$layerMarker" == "suffix" ]; then
+        # Strip trailing digits from file name
+        regEx='/^(.*[^0-9])[0-9]*$/'
+    else
+        echo -e "Error: \$layerMarker == $layerMarker \nThe programmer has messed up!"; exit 1;
+    fi
+
+    numFiles=$( getNumMatchingFiles "${fileSearchPaths[@]}" )
 
     if (( numFiles > 0 )); then
         while IFS= read -r -d '' fileName; do
-
-            # Strip leading digits and file extension from file name
+            # Strip file extension and layer marker digits from file name
             instrName=$( printf '%s/' "${fileName%.*}" | gawk 'BEGIN { RS = "/" }
             {
-                instrName = gensub(/^[0-9]*([^0-9].*)$/, "\\1", 1)
+                instrName = gensub( '"$regEx"', "\\1", 1 )
                 printf("%s", instrName)
             }')
 
@@ -350,58 +346,17 @@ function findFilesLayerMarkerPrefix()
                 origFileNames+=("$fileName")
                 (( filesIndex++ ))
             else
-                echo -e "Warning: Instruments can only have $MAX_LAYERS layers \nInstrument $instrName already has $MAX_LAYERS layers \n$fileName will not be included\n"
+                echo -e "Warning: Instruments can only have $MAX_LAYERS layers \nInstrument \""$( formatInstrName "$instrName" )"\" already has $MAX_LAYERS layers \n$fileName will not be included\n"
             fi
 
-        done < <(getSortedFileNames)
+        done < <(getSortedFileNames "${fileSearchPaths[@]}")
     fi
 }
 
 
-function findFilesLayerMarkerSuffix()
+function findFilesSingleLayer()
 {
-    declare -i instrID=-1
-    declare -iA instrLayerCounters
-    declare instrName=""
-
-    numFiles=$( getNumMatchingFiles )
-
-    if (( numFiles > 0 )); then
-        while IFS= read -r -d '' fileName; do
-
-            # Strip trailing digits and file extension from file name
-            instrName=$( printf '%s/' "${fileName%.*}" | gawk 'BEGIN { RS = "/" }
-            {
-                instrName = gensub(/^(.*[^0-9])[0-9]*$/, "\\1", 1)
-                printf("%s", instrName)
-            }')
-
-            # If file belongs to a new instrument rather than a layer of an existing instrument...
-            if [ "${instrLayerCounters[$instrName]}" == "" ]; then
-                (( instrID++ ))
-                instrumentNames+=("$instrName")
-                instrFilePaths+=("$PWD")
-                instrFilesIndex+=($filesIndex)
-            fi
-
-            instrLayerCounters["$instrName"]+=1
-            layerNum=${instrLayerCounters["$instrName"]}
-            if (( layerNum <= MAX_LAYERS )); then
-                instrNumLayers[$instrID]=$layerNum
-                origFileNames+=("$fileName")
-                (( filesIndex++ ))
-            else
-                echo -e "Warning: Instruments can only have $MAX_LAYERS layers \nInstrument $instrName already has $MAX_LAYERS layers \n$fileName will not be included\n"
-            fi
-
-        done < <(getSortedFileNames)
-    fi
-}
-
-
-function findFilesLayerMarkerNone()
-{
-    numFiles=$( getNumMatchingFiles )
+    numFiles=$( getNumMatchingFiles "${fileSearchPaths[@]}" )
 
     if (( numFiles > 0 )); then
         while IFS= read -r -d '' fileName; do
@@ -411,20 +366,27 @@ function findFilesLayerMarkerNone()
             instrFilePaths+=("$PWD")
             instrFilesIndex+=($filesIndex)
             (( filesIndex++ ))
-        done < <(getSortedFileNames)
+        done < <(getSortedFileNames "${fileSearchPaths[@]}")
     fi
 }
 
 
 function findFilesSFZ()
 {
-    numFiles=$( getNumMatchingFiles )
+    numFiles=$( getNumMatchingFiles "${fileSearchPaths[@]}" )
 
     if (( numFiles > 0 )); then
         while IFS= read -r -d '' fileName; do
             origFileNames+=("$fileName")
-        done < <(getSortedFileNames)
+        done < <(getSortedFileNames "${fileSearchPaths[@]}")
     fi
+}
+
+
+function formatInstrName()
+{
+    # Replace "_" and "\" characters with spaces and trim leading and trailing white space
+    printf '%s' "$1" | tr '\\_' ' ' | xargs
 }
 
 
@@ -433,9 +395,8 @@ function formatInstrNames()
     declare -ri numInstruments=${#instrumentNames[@]}
     declare -i instrID=0
 
-    # Replace "_" and "\" characters with spaces and trim leading and trailing white space
     for (( instrID=0; instrID < numInstruments; instrID++ )); do
-        instrumentNames[$instrID]=$( printf '%s' "${instrumentNames[$instrID]}" | tr '\\_' ' ' | xargs )
+        instrumentNames[$instrID]=$( formatInstrName "${instrumentNames[$instrID]}" )
     done
 }
 
@@ -446,19 +407,20 @@ function findFiles()
     declare -i filesIndex=0
     declare -i layerNum=0
 
-    # If no file names have been passed on the command line then set file search path to PWD
-    if (( ${#fileSearchPaths[@]} == 0 )); then
+    # If no file or dir names have been passed on the command line then set file search path to PWD
+    if (( ${#fileSearchPaths[@]} == 0 )) && (( ${#dirSearchPaths[@]} == 0 )); then
         fileSearchPaths=(".")
+        dirSearchPaths=(".")
     fi
 
     if [ "$fileType" == "sfz" ]; then
         findFilesSFZ
     else
         case $layerMarker in
-            dirs )      findFilesLayerMarkerDirs;;
-            prefix )    findFilesLayerMarkerPrefix;;
-            suffix )    findFilesLayerMarkerSuffix;;
-            * )         findFilesLayerMarkerNone;;
+            dirs )      findFilesInSubDirs; findFilesSingleLayer; renameDuplicateFileNames;;
+            prefix )    findFilesWithDigits;;
+            suffix )    findFilesWithDigits;;
+            * )         findFilesSingleLayer;;
         esac
     fi
 
