@@ -14,7 +14,7 @@
 # These variables may be modified if you need to specify the file path of makeh2kit
 # or if you wish to use a different terminal emulator
 
-MAKEH2KIT_FILEPATH="/dev/shm/makeh2kit/makeh2kit"
+MAKEH2KIT_FILEPATH="makeh2kit"
 TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
 
 # N.B. For a list of available fonts in xterm type: appres XTerm | grep VT100.font
@@ -67,23 +67,23 @@ EOF
 '
 commandToExec+='setTextColour $YELLOW; echo -e "Please enter the following details or simply press enter to accept the\ndefault values...\n"; setTextColour $WHITE; '
 
-if [[ $fileType != [sS][fF][zZ] ]]; then
-    commandToExec+='echo "Drumkit name (default is name of current directory, \"${PWD##*/}\"):"; setTextColour $CYAN; read -e kitName; '
-    commandToExec+='if [[ $kitName == "" ]]; then kitName="${PWD##*/}"; moveCursorUpOneLine; echo $kitName; fi; setTextColour $WHITE; '
-fi
-
-commandToExec+='echo "Author:"; setTextColour $CYAN; read -e kitAuthor; setTextColour $WHITE; '
-
-commandToExec+='echo "License:"; setTextColour $CYAN; read -e kitLicense; setTextColour $WHITE; '
-
-commandToExec+='echo "Info (HTML formatting tags allowed):"; setTextColour $CYAN; read -e kitInfo; setTextColour $WHITE; '
-
 if [ "$fileType" != "" ]; then
     commandToExec+="format='$fileType'; "
 else
     commandToExec+='echo "File format (flac (default), wav, au, aiff, or sfz):"; setTextColour $CYAN; read -e format; '
     commandToExec+='if [[ $format == "" ]]; then format="flac"; moveCursorUpOneLine; echo $format; fi; setTextColour $WHITE; '
 fi
+
+commandToExec+='if [[ $format != [sS][fF][zZ] ]]; then '
+    commandToExec+='echo "Drumkit name (default is name of current directory, \"${PWD##*/}\"):"; setTextColour $CYAN; read -e kitName; '
+    commandToExec+='if [[ $kitName == "" ]]; then kitName="${PWD##*/}"; moveCursorUpOneLine; echo $kitName; fi; setTextColour $WHITE; '
+commandToExec+='fi; '
+
+commandToExec+='echo "Author:"; setTextColour $CYAN; read -e kitAuthor; setTextColour $WHITE; '
+
+commandToExec+='echo "License:"; setTextColour $CYAN; read -e kitLicense; setTextColour $WHITE; '
+
+commandToExec+='echo "Info (HTML formatting tags allowed):"; setTextColour $CYAN; read -e kitInfo; setTextColour $WHITE; '
 
 commandToExec+='if [[ $format != [sS][fF][zZ] ]]; then '
     commandToExec+='echo "Layer marker (none (default), dirs, prefix, or suffix (or d, p, or s)):"; setTextColour $CYAN; read -e layerMarker; '

@@ -809,6 +809,7 @@ if [ "$fileType" == "sfz" ]; then
     for fileName in "${origFileNames[@]}"; do
         kitName="${fileName%.*}"
         unset instrumentNames
+        unset instrMidiNotes
         unset instrNumLayers
 
         while IFS= read -r -d '' instrData; do
