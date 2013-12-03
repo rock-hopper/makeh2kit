@@ -175,8 +175,6 @@ function processArgs()
 {
     declare -i i=0
 
-
-
     if (( NUM_ARGS > 0 )); then
         while (( i < NUM_ARGS )); do
             case ${ARGS[$i]} in
