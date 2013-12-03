@@ -30,9 +30,9 @@ File format (FLAC, WAV, AU, AIFF, or SFZ) can be specified using the -f option:
 
     makeh2kit -f wav
 
-The drum kit name, author, license, and info can also be entered on the command line. When supplying arguments to these options use single rather than double quotes to allow for use of special characters. In addition, HTML formatting tags can be used with the --htmlinfo or --hi option:
+The drum kit name, author, license, and info can also be entered on the command line. When supplying arguments to these options use single rather than double quotes to allow for use of special characters. In addition, HTML formatting tags may be entered when passing an argument to the info option:
 
-    makeh2kit --hi '<p><b>Kit Name</b></p><p>Kit description</p>'
+    makeh2kit -i '<p><b>Kit Name</b></p><p>Kit description</p>'
 
 Options to reverse the sort order and to run the script in "interactive mode" are also available. To see the full list of options:
 
