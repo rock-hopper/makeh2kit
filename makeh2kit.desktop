@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Service
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+# MimeType=inode/directory;audio/*;text/plain;
+MimeType=all/all;
+Actions=MakeH2kit;
+X-KDE-AuthorizeAction=shell_access
+ 
+[Desktop Action MakeH2kit]
+Exec=konsole --hold -e makeh2kit -I --service-menu -- %F
+Icon=utilities-terminal
+Name=Make h2drumkit

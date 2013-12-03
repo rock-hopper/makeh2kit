@@ -34,7 +34,7 @@ The drum kit name, author, license, and info can also be entered on the command 
 
     makeh2kit --hi '<p><b>Kit Name</b></p><p>Kit description</p>'
 
-For a full list of options, run:
+Options to reverse the sort order and to run the script in "interactive mode" are also available. To see the full list of options:
 
     makeh2kit -h
 
@@ -49,7 +49,20 @@ The script assumes that makeh2kit is installed in a directory included in the PA
 
 Near the top of the script are variables that may be modified if you need to specify the file path of makeh2kit or if you wish to use a terminal emulator other than xterm:
 
-    MAKEH2KIT_FILEPATH="makeh2kit"
+    MAKEH2KIT_PATH="makeh2kit"
     TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
 
 Place the script in the Nautilus scripts directory, e.g. '~/.gnome2/nautilus-scripts'. If Nautilus Scripts Manager is installed, place the script in '/usr/share/nautilus-scripts'.
+___
+
+h2drumkit.desktop
+===============
+
+KDE service menu .desktop file to invoke h2drumkit. It assumes that h2drumkit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin).
+
+Place the .desktop file in one of the service menu directories, e.g. '/usr/share/services/ServiceMenus'.
+
+You can find the location of all service directories like so:
+
+    kde4-config --path services
+

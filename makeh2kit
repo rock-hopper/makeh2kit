@@ -16,6 +16,13 @@ declare -ri NUM_ARGS=$#
 
 declare -ri MAX_LAYERS=16
 
+declare -ri CYAN=3
+declare -ri RED=4
+declare -ri YELLOW=6
+declare -ri WHITE=7
+
+declare -ri ERROR=-1
+
 declare -a instrumentNames
 declare -ia instrNumLayers
 declare -ia instrFilesIndex
@@ -40,6 +47,32 @@ p, li { white-space: pre-wrap; }
 declare -r infoHtmlTagClose="&lt;/p>&lt;/body>&lt;/html>"
 
 declare isReverseSortOn=false
+declare isInteractiveModeOn=false
+declare isServiceMenuModeOn=false
+
+
+function setTextColour() { tput setf $1; }
+
+function startUnderline() { tput smul; }
+
+function stopUnderline() { tput rmul; }
+
+function moveCursorUpOneLine() { tput cuu1; }
+
+
+function exitWithError() 
+{
+    declare errorMessage="$1"
+    
+    setTextColour $RED
+    
+    # 1>&2 means redirect text headed for stdout to stderr
+    echo -e "\n$errorMessage\n" 1>&2
+    
+    setTextColour $WHITE
+    
+    exit 1
+}
 
 
 function showHelp() 
@@ -77,6 +110,8 @@ Options:
                                 LAYER_MARKER may be dirs, prefix, or
                                 suffix (or d, p, or s)
   -r, --reverse                 File names are sorted in reverse order
+  -I, --interactive             Run in "interactive" mode, where user
+                                is prompted for input
   -h, --help                    Display this help and exit
 
 N.B. When supplying arguments to options -n, -a, -l, and -i use
@@ -98,7 +133,7 @@ function setFileType()
         [fF][lL][aA][cC] )  fileType="flac";;
         [wW][aA][vV] )      fileType="wav";;
         [sS][fF][zZ] )      fileType="sfz";;
-        * )                 echo "Invalid input: $input. File type must be flac, wav, au, aiff, or sfz"; exit 1;;
+        * )                 exitWithError "File type must be flac, wav, au, aiff, or sfz";;
     esac
 }
 
@@ -115,7 +150,7 @@ function setLayerMarker()
         [pP] )                      layerMarker="prefix";;
         [sS][uU][fF][fF][iI][xX] )  layerMarker="suffix";;
         [sS] )                      layerMarker="suffix";;
-        * )                         echo "Invalid input: $input. Layer marker must be dirs, prefix, or suffix (or d, p, or s)"; exit 1;;
+        * )                         exitWithError "Layer marker must be dirs, prefix, or suffix (or d, p, s)";;
     esac
 }
 
@@ -126,10 +161,9 @@ function setSearchPaths()
 
     while (( param < NUM_ARGS )); do
 
-        # Files/dirs not in the present working directory are discarded
-        if [ -f "${ARGS[$param]##*/}" ]; then
+        if [ -f "${ARGS[$param]}" ]; then
             fileSearchPaths+=("${ARGS[$param]}")
-        elif [ -d "${ARGS[$param]##*/}" ]; then
+        elif [ -d "${ARGS[$param]}" ]; then
             dirSearchPaths+=("${ARGS[$param]}")
         fi
 
@@ -145,30 +179,215 @@ function processArgs()
     if (( NUM_ARGS > 0 )); then
         while (( i < NUM_ARGS )); do
             case ${ARGS[$i]} in
-                -n )            (( i++ )); kitName=${ARGS[$i]};;
-                --name )        (( i++ )); kitName=${ARGS[$i]};;
-                -a )            (( i++ )); kitAuthor=${ARGS[$i]};;
-                --author )      (( i++ )); kitAuthor=${ARGS[$i]};;
-                -i )            (( i++ )); kitInfo=${ARGS[$i]};;
-                --info )        (( i++ )); kitInfo=${ARGS[$i]};;
-                --hi )          (( i++ )); kitInfo=${ARGS[$i]//</'&lt;'};;
-                --htmlinfo )    (( i++ )); kitInfo=${ARGS[$i]//</'&lt;'};;
-                -l )            (( i++ )); kitLicense=${ARGS[$i]};;
-                --license )     (( i++ )); kitLicense=${ARGS[$i]};;
-                -f )            (( i++ )); setFileType ${ARGS[$i]};;
-                --format )      (( i++ )); setFileType ${ARGS[$i]};;
-                -L )            (( i++ )); setLayerMarker ${ARGS[$i]};;
-                --layers )      (( i++ )); setLayerMarker ${ARGS[$i]};;
-                -r )            isReverseSortOn=true;;
-                --reverse )     isReverseSortOn=true;;
-                -- )            (( i++ )); setSearchPaths $i; break;;
-                -h )            showHelp; exit 0;;
-                --help )        showHelp; exit 0;;
-                * )             echo "Invalid option: ${ARGS[$i]}. See 'makeh2kit -h' for usage"; exit 1;;
+                -n )                (( i++ )); kitName=${ARGS[$i]};;
+                --name )            (( i++ )); kitName=${ARGS[$i]};;
+                -a )                (( i++ )); kitAuthor=${ARGS[$i]};;
+                --author )          (( i++ )); kitAuthor=${ARGS[$i]};;
+                -i )                (( i++ )); kitInfo=${ARGS[$i]};;
+                --info )            (( i++ )); kitInfo=${ARGS[$i]};;
+                --hi )              (( i++ )); kitInfo=${ARGS[$i]//</'&lt;'};;
+                --htmlinfo )        (( i++ )); kitInfo=${ARGS[$i]//</'&lt;'};;
+                -l )                (( i++ )); kitLicense=${ARGS[$i]};;
+                --license )         (( i++ )); kitLicense=${ARGS[$i]};;
+                -f )                (( i++ )); setFileType ${ARGS[$i]};;
+                --format )          (( i++ )); setFileType ${ARGS[$i]};;
+                -L )                (( i++ )); setLayerMarker ${ARGS[$i]};;
+                --layers )          (( i++ )); setLayerMarker ${ARGS[$i]};;
+                -r )                isReverseSortOn=true;;
+                --reverse )         isReverseSortOn=true;;
+                -I )                isInteractiveModeOn=true;;
+                --interactive )     isInteractiveModeOn=true;;
+                --service-menu )    isServiceMenuModeOn=true;;
+                -h )                showHelp; exit 0;;
+                --help )            showHelp; exit 0;;
+                -- )                (( i++ )); setSearchPaths $i; break;;
+                * )                 exitWithError "Invalid option: \"${ARGS[$i]}\". See 'makeh2kit -h' for usage";;
             esac
             (( i++ ))
         done
     fi
+}
+
+
+function guessFileTypeFromFileList()
+{
+    declare filePath=""
+    declare prevFileType=""
+    
+    fileType=""
+    
+    for filePath in "${fileSearchPaths[@]}"; do
+        fileType="${filePath##*.}"
+
+        if [[ $fileType != [fF][lL][aA][cC] ]] && [[ $fileType != [wW][aA][vV] ]] && \
+           [[ $fileType != [aA][uU] ]] && [[ $fileType != [aA][iI][fF][fF] ]] && [[ $fileType != [sS][fF][zZ] ]]; then
+            fileType=""
+        fi
+
+        if [ "$prevFileType" != "" ] && [ "$fileType" != "$prevFileType" ]; then
+            fileType=""
+            break
+        fi
+        prevFileType="$fileType"
+    done
+}
+
+
+function showWelcomeMessage()
+{
+    setTextColour $YELLOW; startUnderline; echo -e "\nMake h2drumkit"; stopUnderline
+    
+    setTextColour $WHITE; cat << EOF
+
+This script will auto-generate a h2drumkit file from the selected file(s).
+If no files are selected it will scan the current directory for compatible
+files (flac, wav, au, aiff, or sfz).
+
+Audio files can be treated as indiviual instruments or as instrument layers
+grouped either by sub-directory or by file name with numeric prefixes/suffixes
+indicating the layers.
+
+Hydrogen kits that "map" SFZ drum kits can also be created. The resulting kit
+will not contain any audio files and will instead trigger the MIDI note of
+each instrument in the SFZ kit.
+
+EOF
+}
+
+
+# This function only gets called if makeh2kit was launched from a KDE service menu
+function setWorkingDir()
+{    
+    # Try to work out present working directory from list of files passed on the command line
+    if (( ${#fileSearchPaths[@]} > 0 )); then
+        cd "${fileSearchPaths[0]%/*}"
+    elif (( ${#dirSearchPaths[@]} > 1 )); then
+        cd "${dirSearchPaths[0]%/*}"
+    elif (( ${#dirSearchPaths[@]} == 1 )); then
+        # Ask user if this is the PWD or a sub-dir
+        setTextColour $YELLOW; echo "Selected directory: ${dirSearchPaths[0]}"
+        setTextColour $WHITE; echo "Should makeh2kit set this as the current directory?"
+        echo -e "yes - create files in ${dirSearchPaths[0]} (default)\nno  - create files in ${dirSearchPaths[0]%/*}"
+        setTextColour $CYAN; read -e input
+        
+        if [[ $input == "" ]]; then 
+            input="yes"; moveCursorUpOneLine; echo "$input"
+        fi
+
+        if [[ $input == [yY] ]] || [[ $input == [yY][eE][sS] ]]; then
+            cd "${dirSearchPaths[0]}"
+            unset dirSearchPaths
+        elif [[ $input == [nN] ]] || [[ $input == [nN][oO] ]]; then
+            cd "${dirSearchPaths[0]%/*}"
+        else
+            exitWithError "Invalid value: \"$input\""
+        fi
+    else
+        exitWithError "Error: no files or dirs passed on command line. \nThe programmer has messed up!"
+    fi
+}
+
+
+function getValuesFromUser()
+{
+    declare input=""
+
+    guessFileTypeFromFileList
+    
+    showWelcomeMessage
+
+    setTextColour $YELLOW; echo -e "Please enter the following details or simply press enter to accept the\ndefault values...\n"
+    
+    if $isServiceMenuModeOn; then
+        setWorkingDir
+    fi
+    
+    # Set file type
+    if [[ $fileType == "" ]]; then
+        setTextColour $WHITE; echo "File format (flac (default), wav, au, aiff, or sfz):"
+        setTextColour $CYAN; read -e input
+        
+        if [[ $input == "" ]]; then 
+            input="flac"; moveCursorUpOneLine; echo "$input"
+        fi
+        
+        setFileType "$input"
+    fi
+
+    # Set kit name
+    if [[ $fileType != [sS][fF][zZ] ]]; then
+        setTextColour $WHITE; echo "Drumkit name (default is name of current directory, \"${PWD##*/}\"):"
+        setTextColour $CYAN; read -e kitName
+        
+        if [[ $kitName == "" ]]; then 
+            kitName="${PWD##*/}"; moveCursorUpOneLine; echo $kitName
+        fi
+    fi
+
+    # Set author
+    setTextColour $WHITE; echo "Author:"
+    setTextColour $CYAN; read -e kitAuthor
+
+    # Set license
+    setTextColour $WHITE; echo "License:"
+    setTextColour $CYAN; read -e kitLicense
+
+    # Set info
+    setTextColour $WHITE; echo "Info (HTML formatting tags allowed):"
+    setTextColour $CYAN; read -e kitInfo
+
+    # Set "layer marker"
+    if [[ $fileType != [sS][fF][zZ] ]]; then
+        setTextColour $WHITE; echo "Set \"layer marker\" (none (default), dirs, prefix, or suffix (or d, p, s)):"
+        setTextColour $CYAN; read -e input
+        
+        if [[ $input == "" ]]; then 
+            input="none"; moveCursorUpOneLine; echo "$input"
+        fi
+        
+        if [[ $input != "none" ]]; then 
+            setLayerMarker "$input"
+        fi
+    fi
+
+    # Reverse sort order?
+    if [[ $fileType != [sS][fF][zZ] ]]; then
+        setTextColour $WHITE; echo "Reverse sort order? (default is no):"
+        setTextColour $CYAN; read -e input
+        
+        if [[ $input == "" ]]; then 
+            input="no"; moveCursorUpOneLine; echo "$input"
+        fi
+
+        if [[ $input == [yY] ]] || [[ $input == [yY][eE][sS] ]]; then
+            isReverseSortOn=true
+        elif [[ $input == [nN] ]] || [[ $input == [nN][oO] ]]; then
+            isReverseSortOn=false
+        else
+            exitWithError "Invalid value: \"$input\""
+        fi
+    fi
+
+    setTextColour $WHITE
+}
+
+
+function makePathsRelative()
+{
+    declare -i i=0
+    
+    # Remove PWD from start of files and dirs so paths are relative rather than absolute
+    for (( i = 0; i < ${#fileSearchPaths[@]}; i++ )); do
+        fileSearchPaths[i]="${fileSearchPaths[i]#$PWD/}"
+    done
+    
+    for (( i = 0; i < ${#dirSearchPaths[@]}; i++ )); do
+        if [[ ${dirSearchPaths[i]} != "$PWD/" ]]; then
+            dirSearchPaths[i]="${dirSearchPaths[i]#$PWD/}"
+        else
+            dirSearchPaths[i]="."
+        fi
+    done
 }
 
 
@@ -317,7 +536,7 @@ function findFilesWithDigits()
         # Strip trailing digits from file name
         regEx='/^(.*[^0-9])[0-9]*$/'
     else
-        echo -e "Error: \$layerMarker == $layerMarker \nThe programmer has messed up!"; exit 1;
+        exitWithError "Error: \$layerMarker == $layerMarker \nThe programmer has messed up!"
     fi
 
     numFiles=$( getNumMatchingFiles "${fileSearchPaths[@]}" )
@@ -619,21 +838,22 @@ function createH2DrumkitFile()
 
 function createDir()
 {
-    declare dirName=$1
+    declare dirName="$1"
 
-    mkdir "$dirName"
     # If a directory with this name already exists then bail out
-    if [ $? -eq 1 ]; then
-        exit 1
+    if [ -d "$dirName" ]; then
+        exitWithError "Can't create \"$dirName\", dir already exists"
+    else
+        mkdir "$dirName"
     fi
 }
 
 
-# This function returns a null-terminated list of instruments. Each field is separated
-# by a "/". The 1st field is the instrument name and the 2nd field is the MIDI note no.
+# This function returns a list of instrument/MIDI-note pairs. Records are separated by "\0"
+# and fields are separated by "/". Field 1 is the instrument name, field 2 is the MIDI note
 function parseSfzFile()
 {
-    declare fileName=$1
+    declare fileName="$1"
 
     gawk '
     BEGIN {
@@ -798,14 +1018,24 @@ function parseSfzFile()
 # Main body of script
 
 processArgs
-findFiles
 
-if [ ${#origFileNames[@]} -eq 0 ]; then
-    echo "No $fileType files found!"
-    exit 1
+if $isInteractiveModeOn; then
+    getValuesFromUser
 fi
 
-if [ "$fileType" == "sfz" ]; then
+makePathsRelative
+
+if $isInteractiveModeOn; then
+    echo
+fi
+
+findFiles
+
+if (( ${#origFileNames[@]} == 0 )); then
+    exitWithError "No $fileType files found!"
+fi
+
+if [[ $fileType == "sfz" ]]; then
     for fileName in "${origFileNames[@]}"; do
         kitName="${fileName%.*}"
         unset instrumentNames
@@ -813,8 +1043,8 @@ if [ "$fileType" == "sfz" ]; then
         unset instrNumLayers
 
         while IFS= read -r -d '' instrData; do
-            instrumentNames+=("${instrData%/*}")
-            instrMidiNotes+=(${instrData#*/})
+            instrumentNames+=("${instrData%/*}")    # Discard text after the "/" field separator
+            instrMidiNotes+=(${instrData#*/})       # Discard text before the "/" field separator
             instrNumLayers+=(0)
         done < <(parseSfzFile "$fileName")
 
@@ -832,3 +1062,8 @@ else
     rm -rf "$kitName"
 fi
 
+if $isInteractiveModeOn; then
+    setTextColour $YELLOW; echo -e "All done!\n"
+fi
+
+setTextColour $WHITE
