@@ -98,11 +98,8 @@ Options:
   -n, --name 'KIT NAME'         Drumkit name
   -a, --author 'AUTHOR'         Name of author
   -l, --license 'LICENSE'       License to use for the drumkit
-  -i, --info 'INFO'             Additional info
-      --hi '<p>INFO</p>',       Additional info; accepts HTML-
-      --htmlinfo '<p>INFO</p>'  formatting tags. Note that every
-                                occurrence of '<' will be replaced
-                                with '&lt;'
+  -i, --info 'INFO'             Additional info; accepts HTML-
+                                formatting tags
   -f, --format FORMAT           File format; FORMAT may be 
                                 flac (default), wav, au, aiff, or sfz
   -L, --layers LAYER_MARKER     Files are grouped into instruments
@@ -176,6 +173,8 @@ function processArgs()
 {
     declare -i i=0
 
+
+
     if (( NUM_ARGS > 0 )); then
         while (( i < NUM_ARGS )); do
             case ${ARGS[$i]} in
@@ -185,8 +184,6 @@ function processArgs()
                 --author )          (( i++ )); kitAuthor=${ARGS[$i]};;
                 -i )                (( i++ )); kitInfo=${ARGS[$i]};;
                 --info )            (( i++ )); kitInfo=${ARGS[$i]};;
-                --hi )              (( i++ )); kitInfo=${ARGS[$i]//</'&lt;'};;
-                --htmlinfo )        (( i++ )); kitInfo=${ARGS[$i]//</'&lt;'};;
                 -l )                (( i++ )); kitLicense=${ARGS[$i]};;
                 --license )         (( i++ )); kitLicense=${ARGS[$i]};;
                 -f )                (( i++ )); setFileType ${ARGS[$i]};;
@@ -369,6 +366,17 @@ function getValuesFromUser()
     fi
 
     setTextColour $WHITE
+}
+
+
+function makeInputXmlCompatible()
+{
+    # ${variable//</&lt;} - Every occurrence of "<" is replaced with "&lt;"
+
+    kitName="${kitName[$i]//</&lt;}"
+    kitAuthor="${kitAuthor[$i]//</&lt;}"
+    kitInfo="${kitInfo[$i]//</&lt;}"
+    kitLicense="${kitLicense[$i]//</&lt;}"
 }
 
 
@@ -1023,6 +1031,7 @@ if $isInteractiveModeOn; then
     getValuesFromUser
 fi
 
+makeInputXmlCompatible
 makePathsRelative
 
 if $isInteractiveModeOn; then

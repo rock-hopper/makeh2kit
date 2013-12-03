@@ -14,7 +14,7 @@
 # These variables may be modified if you need to specify the file path of makeh2kit
 # or if you wish to use a different terminal emulator
 
-MAKEH2KIT_PATH="makeh2kit"
+MAKEH2KIT_PATH="/dev/shm/makeh2kit/makeh2kit"
 TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
 # TERMINAL_COMMAND="konsole --hold -e"
 
