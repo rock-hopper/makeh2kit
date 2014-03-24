@@ -1,14 +1,13 @@
 #!/bin/bash
 #
-# makeh2kit by RockHopper 2013
+# makeh2kit by Andrew M Taylor 2013
 #
-# A script to auto-generate h2drumkit files. Requires bash v4 and gawk
+# This is a script to auto-generate h2drumkit files. Requires bash v4 and gawk
 #
 # For a full list of options, run 'makeh2kit -h'
 #
-# This script is public domain and provided 'as-is', without any express or implied 
-# warranty. In no event will the author be held liable for any damages arising from 
-# the use of this software
+# This is free and unencumbered software released into the public domain.
+# Please read UNLICENSE for more details, or refer to <http://unlicense.org/>
 
 
 declare -ra ARGS=("$@")
