@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="makeh2kit : bash script to auto-generate .h2drumkit files">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>makeh2kit</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/rock-hopper/makeh2kit">View on GitHub</a>
+
+          <h1 id="project_title">makeh2kit</h1>
+          <h2 id="project_tagline">bash script to auto-generate .h2drumkit files</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/rock-hopper/makeh2kit/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/rock-hopper/makeh2kit/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="makeh2kit" class="anchor" href="#makeh2kit" aria-hidden="true"><span class="octicon octicon-link"></span></a>makeh2kit</h1>
+
+<p>Running makeh2kit with no arguments will scan the current directory for FLAC files and create a h2drumkit file named after the current directory. 
+Instruments are named after the audio files minus their extension.</p>
+
+<p>Audio files can be treated as indiviual instruments or as instrument layers grouped either by sub-directory or by file name with numeric prefixes/suffixes indicating the layers.
+For example, if the "layer marker" is set to "prefix":</p>
+
+<pre><code>00 kick1.flac
+01 kick1.flac
+02 kick1.flac
+03 kick1.flac
+</code></pre>
+
+<p>become layers of kick1, and</p>
+
+<pre><code>1_kick2.flac
+2_kick2.flac
+3_kick2.flac
+4_kick2.flac
+</code></pre>
+
+<p>become layers of kick2.</p>
+
+<p>Hydrogen kits that "map" SFZ drum kits can also be created. The resulting kit won't contain any audio files and will instead trigger the MIDI note of each instrument in the SFZ kit. Once the kit is imported, connect Hydrogen's MIDI Out to the sampler's MIDI In.</p>
+
+<p>File format (FLAC, WAV, AU, AIFF, or SFZ) can be specified using the -f option:</p>
+
+<pre><code>makeh2kit -f wav
+</code></pre>
+
+<p>The drum kit name, author, license, and info can also be entered on the command line. When supplying arguments to these options use single rather than double quotes to allow for use of special characters. In addition, HTML formatting tags may be entered when passing an argument to the info option:</p>
+
+<pre><code>makeh2kit -i '&lt;p&gt;&lt;b&gt;Kit Name&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Kit description&lt;/p&gt;'
+</code></pre>
+
+<p>Options to reverse the sort order and to run the script in "interactive mode" are also available. To see the full list of options:</p>
+
+<pre><code>makeh2kit -h
+</code></pre>
+
+<p>For convenience of use, place the script in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin).</p>
+
+<p>makeh2kit requires bash v4 and gnu awk</p>
+
+<hr>
+
+<h1>
+<a id="make-h2drumkit" class="anchor" href="#make-h2drumkit" aria-hidden="true"><span class="octicon octicon-link"></span></a>Make h2drumkit</h1>
+
+<p>This is a Nautilus script to invoke makeh2kit. Any selected files will be passed as arguments to makeh2kit.
+The script assumes that makeh2kit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin) and that xterm is available.</p>
+
+<p>Near the top of the script are variables that may be modified if you need to specify the file path of makeh2kit or if you wish to use a terminal emulator other than xterm:</p>
+
+<pre><code>MAKEH2KIT_PATH="makeh2kit"
+TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
+</code></pre>
+
+<p>Place the script in the Nautilus scripts directory, e.g. '~/.gnome2/nautilus-scripts'. If Nautilus Scripts Manager is installed, place the script in '/usr/share/nautilus-scripts'.</p>
+
+<hr>
+
+<h1>
+<a id="h2drumkitdesktop" class="anchor" href="#h2drumkitdesktop" aria-hidden="true"><span class="octicon octicon-link"></span></a>h2drumkit.desktop</h1>
+
+<p>KDE service menu .desktop file to invoke h2drumkit. It assumes that h2drumkit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin).</p>
+
+<p>Place the .desktop file in one of the service menu directories, e.g. '/usr/share/services/ServiceMenus'.</p>
+
+<p>You can find the location of all service directories like so:</p>
+
+<pre><code>kde4-config --path services
+</code></pre>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">makeh2kit maintained by <a href="https://github.com/rock-hopper">rock-hopper</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
