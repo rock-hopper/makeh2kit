@@ -27,4 +27,4 @@ while IFS="\n" read -r -d $'\n' filePath; do
     filePaths+=("$filePath")
 done < <(echo -n "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS")
 
-$TERMINAL_COMMAND "$MAKEH2KIT_PATH" -I -- "${filePaths[@]}"
+$TERMINAL_COMMAND "$MAKEH2KIT_PATH" -I --files "${filePaths[@]}"

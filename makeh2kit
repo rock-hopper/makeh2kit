@@ -196,7 +196,7 @@ function processArgs()
                 --service-menu )    isServiceMenuModeOn=true;;
                 -h )                showHelp; exit 0;;
                 --help )            showHelp; exit 0;;
-                -- )                (( i++ )); setSearchPaths $i; break;;
+                --files )           (( i++ )); setSearchPaths $i; break;;
                 * )                 exitWithError "Invalid option: \"${ARGS[$i]}\". See 'makeh2kit -h' for usage";;
             esac
             (( i++ ))
