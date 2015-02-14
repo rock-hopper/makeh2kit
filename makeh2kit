@@ -81,7 +81,7 @@ function showHelp()
     cat << EOF
 
 Usage:  makeh2kit [options]
-        makeh2kit [options] -- 'file name' ...
+        makeh2kit [options] --files 'file name' ...
 
 Running makeh2kit with no arguments will scan the current directory 
 for flac files and create a h2drumkit file named after the current 
@@ -389,10 +389,10 @@ function makePathsRelative()
     done
     
     for (( i = 0; i < ${#dirSearchPaths[@]}; i++ )); do
-        if [[ ${dirSearchPaths[i]} != "$PWD/" ]]; then
-            dirSearchPaths[i]="${dirSearchPaths[i]#$PWD/}"
-        else
+        if [[ ${dirSearchPaths[i]} == "$PWD" ]] || [[ ${dirSearchPaths[i]} == "$PWD/" ]]; then
             dirSearchPaths[i]="."
+        else
+            dirSearchPaths[i]="${dirSearchPaths[i]#$PWD/}"
         fi
     done
 }
@@ -639,6 +639,10 @@ function findFiles()
         dirSearchPaths=(".")
     fi
 
+    if (( ${#fileSearchPaths[@]} == 0 )) && (( ${#dirSearchPaths[@]} == 1 )) && [[ ${dirSearchPaths[0]} == "." ]]; then
+        fileSearchPaths=(".")
+    fi
+
     if [ "$fileType" == "sfz" ]; then
         findFilesSFZ
     else
@@ -658,9 +662,9 @@ function calculateF()
 {
     declare expression=$1
 
-    # scale=4 : round to 4 fractional digits
-    # if(x<1) print 0 : print leading 0
-    # 2>/dev/null : don't print error messages
+    # scale=4         : round to 4 fractional digits
+    # if(x<1) print 0 : if answer is less than 1 print leading 0
+    # 2>/dev/null     : don't print error messages
     echo $( echo "scale=4; x=$expression; if(x<1) print 0; x" | bc -q 2>/dev/null )
 }
 
