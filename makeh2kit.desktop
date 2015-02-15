@@ -7,6 +7,6 @@ Actions=MakeH2kit;
 X-KDE-AuthorizeAction=shell_access
  
 [Desktop Action MakeH2kit]
-Exec=konsole --hold -e makeh2kit -I --service-menu -- %F
+Exec=konsole --hold -e makeh2kit -I --service-menu --files %F
 Icon=utilities-terminal
 Name=Make h2drumkit
