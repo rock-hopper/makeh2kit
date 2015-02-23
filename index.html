@@ -50,7 +50,7 @@
 <p>Running makeh2kit with no arguments will scan the current directory for FLAC files and create a h2drumkit file named after the current directory. 
 Instruments are named after the audio files minus their extension.</p>
 
-<p>Audio files can be treated as indiviual instruments or as instrument layers grouped either by sub-directory or by file name with numeric prefixes/suffixes indicating the layers.
+<p>Audio files can be treated as individual instruments or as instrument layers grouped either by sub-directory or by file name with numeric prefixes/suffixes indicating the layers.
 For example, if the "layer marker" is set to "prefix":</p>
 
 <pre><code>00 kick1.flac
@@ -95,7 +95,7 @@ For example, if the "layer marker" is set to "prefix":</p>
 <h1>
 <a id="make-h2drumkit" class="anchor" href="#make-h2drumkit" aria-hidden="true"><span class="octicon octicon-link"></span></a>Make h2drumkit</h1>
 
-<p>This is a Nautilus script to invoke makeh2kit. Any selected files will be passed as arguments to makeh2kit.
+<p>This is a Nautilus script to invoke makeh2kit in interactive mode. Any selected files will be passed as arguments to makeh2kit.
 The script assumes that makeh2kit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin) and that xterm is available.</p>
 
 <p>Near the top of the script are variables that may be modified if you need to specify the file path of makeh2kit or if you wish to use a terminal emulator other than xterm:</p>
@@ -111,7 +111,7 @@ TERMINAL_COMMAND="xterm -hold -title MakeH2drumkit -font 9x15 -e"
 <h1>
 <a id="h2drumkitdesktop" class="anchor" href="#h2drumkitdesktop" aria-hidden="true"><span class="octicon octicon-link"></span></a>h2drumkit.desktop</h1>
 
-<p>KDE service menu .desktop file to invoke h2drumkit. It assumes that h2drumkit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin).</p>
+<p>KDE service menu .desktop file to invoke h2drumkit in interactive mode. It assumes that h2drumkit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin).</p>
 
 <p>Place the .desktop file in one of the service menu directories, e.g. '/usr/share/services/ServiceMenus'.</p>
 
