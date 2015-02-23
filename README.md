@@ -7,7 +7,7 @@ Requires bash v4 and gawk.
 Running makeh2kit with no arguments will scan the current directory for FLAC files and create a h2drumkit file named after the current directory. 
 Instruments are named after the audio files minus their extension.
 
-Audio files can be treated as indiviual instruments or as instrument layers grouped either by sub-directory or by file name with numeric prefixes/suffixes indicating the layers.
+Audio files can be treated as individual instruments or as instrument layers grouped either by sub-directory or by file name with numeric prefixes/suffixes indicating the layers.
 For example, if the "layer marker" is set to "prefix":
 
     00 kick1.flac
@@ -44,7 +44,7 @@ ___
 Make h2drumkit
 ==============
 
-This is a Nautilus script to invoke makeh2kit. Any selected files will be passed as arguments to makeh2kit.
+This is a Nautilus script to invoke makeh2kit in interactive mode. Any selected files will be passed as arguments to makeh2kit.
 The script assumes that makeh2kit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin) and that xterm is available.
 
 Near the top of the script are variables that may be modified if you need to specify the file path of makeh2kit or if you wish to use a terminal emulator other than xterm:
@@ -58,7 +58,7 @@ ___
 h2drumkit.desktop
 ===============
 
-KDE service menu .desktop file to invoke h2drumkit. It assumes that h2drumkit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin).
+KDE service menu .desktop file to invoke h2drumkit in interactive mode. It assumes that h2drumkit is installed in a directory included in the PATH environment variable (e.g. /usr/bin, /usr/local/bin).
 
 Place the .desktop file in one of the service menu directories, e.g. '/usr/share/services/ServiceMenus'.
 
